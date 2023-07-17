@@ -5,7 +5,8 @@ import librosa
 import argparse
 import numpy as np
 import crepe
-
+import rmvpe
+import soundfile
 
 def compute_f0_voice(filename, device):
     audio, sr = librosa.load(filename, sr=16000)
@@ -90,7 +91,15 @@ if __name__ == "__main__":
     print(args.pit)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    pitch = compute_f0_sing(args.wav, device)
+    #pitch = compute_f0_sing(args.wav, device)
+    rmv = rmvpe.RMVPE(os.path.join("rmvpe_pretrain", "rmvpe.pt"),is_half=False, device=device)
+    audio, sampling_rate = soundfile.read(args.wav)
+    if len(audio.shape) > 1:
+        audio = librosa.to_mono(audio.transpose(1, 0))
+    if sampling_rate != 16000:
+        audio = librosa.resample(audio, orig_sr=sampling_rate, target_sr=16000)
+    pitch = rmv.infer_from_audio(audio, thred=0.03)
+    pitch = np.repeat(pitch, 2, -1)
     save_csv_pitch(pitch, args.pit)
     #tmp = load_csv_pitch(args.pit)
     #save_csv_pitch(tmp, "tmp.csv")
